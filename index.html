@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Tres en Raya</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.0.0"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        background-color: #f4f4f4;
+      }
+
+      h1 {
+        color: #333;
+      }
+
+      table {
+        border-collapse: collapse;
+        margin: 20px auto;
+        background-color: #fff;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      td {
+        width: 80px;
+        height: 80px;
+        text-align: center;
+        font-size: 40px;
+        font-weight: bold;
+        border: 2px solid black;
+        cursor: pointer;
+        transition: background 0.3s, transform 0.2s;
+      }
+
+      td:hover {
+        background-color: #ddd;
+        transform: scale(1.05);
+      }
+
+      .X {
+        color: #e74c3c;
+      }
+
+      .O {
+        color: #3498db;
+      }
+
+      .winner {
+        background-color: #2ecc71 !important;
+        color: white !important;
+      }
+
+      button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 18px;
+        border: none;
+        cursor: pointer;
+        background-color: #3498db;
+        color: white;
+        border-radius: 5px;
+        transition: background 0.3s;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tres en Raya</h1>
+    <table id="board"></table>
+    <button onclick="restartGame()">Reiniciar Juego</button>
+
+    <script>
+      let model;
+      let board = Array(9).fill(0);
+
+      const renderBoard = () => {
+        const table = document.getElementById("board");
+        table.innerHTML = "";
+        for (let i = 0; i < 3; i++) {
+          const row = table.insertRow();
+          for (let j = 0; j < 3; j++) {
+            const cell = row.insertCell();
+            const idx = i * 3 + j;
+            cell.textContent =
+              board[idx] === 1 ? "X" : board[idx] === -1 ? "O" : "";
+            cell.className =
+              board[idx] === 1 ? "X" : board[idx] === -1 ? "O" : "";
+            if (board[idx] === 0) {
+              cell.addEventListener("click", () => playerMove(idx));
+            }
+          }
+        }
+      };
+
+      const checkWinner = () => {
+        const winningPatterns = [
+          [0, 1, 2],
+          [3, 4, 5],
+          [6, 7, 8],
+          [0, 3, 6],
+          [1, 4, 7],
+          [2, 5, 8],
+          [0, 4, 8],
+          [2, 4, 6],
+        ];
+
+        for (const pattern of winningPatterns) {
+          const [a, b, c] = pattern;
+          if (
+            board[a] !== 0 &&
+            board[a] === board[b] &&
+            board[a] === board[c]
+          ) {
+            setTimeout(() => {
+              alert(board[a] === 1 ? "¡Ganaste!" : "¡Perdiste!");
+              restartGame();
+            }, 100);
+            return true;
+          }
+        }
+
+        if (!board.includes(0)) {
+          setTimeout(() => {
+            alert("¡Empate!");
+            restartGame();
+          }, 100);
+          return true;
+        }
+        return false;
+      };
+
+      const restartGame = () => {
+        board.fill(0);
+        renderBoard();
+      };
+
+      const playerMove = async (idx) => {
+        if (board[idx] !== 0) return;
+        board[idx] = 1;
+        renderBoard();
+
+        if (checkWinner()) return;
+
+        await iaMove();
+        renderBoard();
+
+        checkWinner();
+      };
+
+      const iaMove = async () => {
+        const input = tf.tensor(board).reshape([1, 9]);
+        const prediction = model.predict(input);
+        const moveScores = prediction.reshape([9]).arraySync();
+        let bestMove = -1,
+          bestScore = -Infinity;
+        for (let i = 0; i < moveScores.length; i++) {
+          if (board[i] === 0 && moveScores[i] > bestScore) {
+            bestScore = moveScores[i];
+            bestMove = i;
+          }
+        }
+        if (bestMove !== -1) board[bestMove] = -1;
+      };
+
+      tf.ready().then(async () => {
+        model = await tf.loadLayersModel("model/ttt_model.json");
+        renderBoard();
+      });
+    </script>
+  </body>
+</html>
